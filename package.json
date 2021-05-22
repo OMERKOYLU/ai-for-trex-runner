@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wayou/t-rex-runner.git"
+    "url": "git+https://github.com/OMERKOYLU/ai-for-trex-runner"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/wayou/t-rex-runner/issues"
+    "url": "https://github.com/OMERKOYLU/ai-for-trex-runner/issues"
   },
-  "homepage": "https://github.com/wayou/t-rex-runner#readme",
+  "homepage": "https://github.com/OMERKOYLU/ai-for-trex-runner#readme",
   "dependencies": {
     "math.js": "^1.1.46",
     "mathjs": "^9.3.2",
