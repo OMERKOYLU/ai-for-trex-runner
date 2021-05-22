@@ -7,6 +7,7 @@
     <title >chrome easter egg: t-rex runner</title>
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> 
+    <script src="./node_modules/mathjs/lib/browser/math.js"></script>
     <script src="index.js"></script>
 </head>
 
@@ -29,6 +30,23 @@
             </template>
         </div>
     </div>
+    <div id="ai-data" style="margin-left: 325px;width: 650px;border:1px solid black;">
+        <span style="text-align: center;display: block;border:1px solid black;">Playes on play</span>
+        <div id="playing-count">
+
+        </div>
+        <span style="text-align: center;display: block;border:1px solid black;">Best Model of Tour Weights</span>
+        <div id="best-weigths">
+
+        </div>
+        <span style="text-align: center;display: block;border:1px solid black;">Best Model OverAll<span id="tour" style="float:right;">Tour:0</span></span>
+        <div id="best-overall">
+
+        </div>
+    </div>
+    <canvas id="neural-network" width="300" height="600" style="border:1px solid black; z-index:1;position: absolute; left:10px;top:10px;">
+
+    </canvas>
 </body>
 
 <script>

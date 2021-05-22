@@ -9,6 +9,11 @@ html, body {
   height: 100%;
 }
 
+.inverted {
+  background-color: black;
+  color: white;
+}
+
 .icon {
   -webkit-user-select: none;
   user-select: none;

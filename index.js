@@ -1,9 +1,32 @@
 // Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 // extract from chromium source code by @liuwayong
 (function () {
     'use strict';
+    var distanceX;
+    var distanceY;
+    var obstacleWidth;
+    var cspeed;
+    var parameters=[];
+    var distances=[];
+    var distancesTemp=[];
+    var playerCount=1000;
+    var predictions=[];
+    var predictionPercentage=[];
+    var tour=1;
+    var nmActivated=false;
+    for(var i=0;i<playerCount;i++) {
+        predictions.push(0);
+        predictionPercentage.push([0,0,0]);
+        distances.push(0);
+    }
+    var players=[];
+    var ais=[];
+    var aisTemp=[];
+    // for(var i=0;i<playerCount;i++) aisTemp.push(null);
+    var aiprocedures;
     /**
      * T-Rex runner.
      * @param {string} outerContainerId Outer containing element id.
@@ -30,7 +53,8 @@
         this.canvas = null;
         this.canvasCtx = null;
 
-        this.tRex = null;
+        // this.tRex = null;
+        // this.tRex2= null
 
         this.distanceMeter = null;
         this.distanceRan = 0;
@@ -39,7 +63,7 @@
 
         this.time = 0;
         this.runningTime = 0;
-        this.msPerFrame = 1000 / FPS;
+        this.msPerFrame = (1000/FPS);
         this.currentSpeed = this.config.SPEED;
 
         this.obstacles = [];
@@ -376,7 +400,21 @@
                 this.spriteDef.TEXT_SPRITE, this.dimensions.WIDTH);
 
             // Draw t-rex
-            this.tRex = new Trex(this.canvas, this.spriteDef.TREX);
+            for(var i=0;i<playerCount;i++) {
+                ais.push(new Ai(i));
+                players.push(new Trex(this.canvas,this.spriteDef.TREX));
+                var data={
+                    distanceX:0,
+                    distanceY:0,
+                    obstacleWidth:0,
+                    speed:this.currentSpeed/this.config.MAX_SPEED,
+                }
+                parameters.push(data);
+            }
+            // ais[0].weights=[[0.1430123871853315,-0.4961601797926429,0.7560881356850612,-0.7011464358448668],[0.08034739713848942,-0.006285892594430478,-0.3988664303492445,-0.7461529723281535],[-0.30277121475673885,-0.2856496359161322,-0.699011185140923,0.9745829714126331]]
+        //    ais[0].weights=[[0.5768868491748647,0.29846117227994856,0.45083284345459773,-0.5159351421496581],[0.5578044699160611,0.6222390878363474,-0.3248155023881855,-0.8934594772554042],[0.46304723286886984,0.39950000899443083,-0.9771420630601488,0.993299688582187]]
+            aiprocedures=new AiProcedures();
+            // this.tRex = new Trex(this.canvas, this.spriteDef.TREX);
 
             this.outerContainerEl.appendChild(this.containerEl);
 
@@ -433,16 +471,22 @@
                 this.distanceMeter.calcXPos(this.dimensions.WIDTH);
                 this.clearCanvas();
                 this.horizon.update(0, 0, true);
-                this.tRex.update(0);
+                // this.tRex.update(0);
+                players.forEach((player)=>player.update(0));
 
                 // Outer container and distance meter.
                 if (this.playing || this.crashed || this.paused) {
                     this.containerEl.style.width = this.dimensions.WIDTH + 'px';
                     this.containerEl.style.height = this.dimensions.HEIGHT + 'px';
-                    this.distanceMeter.update(0, Math.ceil(this.distanceRan));
+                    // this.distanceMeter.update(0, Math.ceil(this.distanceRan));
+                    var max = distances.reduce(function(a, b) {
+                        return Math.max(a, b);
+                    });
+                    this.distanceMeter.update(0, Math.ceil(max));
                     this.stop();
                 } else {
-                    this.tRex.draw(0, 0);
+                    // this.tRex.draw(0, 0);
+                    players.forEach((player)=>player.draw(0,0));
                 }
 
                 // Game over panel.
@@ -460,7 +504,8 @@
         playIntro: function () {
             if (!this.activated && !this.crashed) {
                 this.playingIntro = true;
-                this.tRex.playingIntro = true;
+                players.forEach((player)=>{player.playingIntro=true;});
+                // this.tRex.playingIntro = true;
 
                 // CSS animation definition.
                 var keyframes = '@-webkit-keyframes intro { ' +
@@ -497,7 +542,8 @@
         startGame: function () {
             this.runningTime = 0;
             this.playingIntro = false;
-            this.tRex.playingIntro = false;
+            // this.tRex.playingIntro = false;
+            players.forEach((player)=>{player.playingIntro=false;});
             this.containerEl.style.webkitAnimation = '';
             this.playCount++;
 
@@ -530,43 +576,61 @@
             if (this.playing) {
                 this.clearCanvas();
 
-                if (this.tRex.jumping) {
-                    this.tRex.updateJump(deltaTime);
-                }
+                // if (this.tRex.jumping) {
+                //     this.tRex.updateJump(deltaTime);
+                // }
+                players.forEach((player)=>{
+                    if (player.jumping) {
+                        player.updateJump(deltaTime);
+                    }
+                });
 
                 this.runningTime += deltaTime;
                 var hasObstacles = this.runningTime > this.config.CLEAR_TIME;
 
                 // First jump triggers the intro.
-                if (this.tRex.jumpCount == 1 && !this.playingIntro) {
-                    this.playIntro();
-                }
+                // if (this.tRex.jumpCount == 1 && !this.playingIntro) {
+                //     this.playIntro();
+                // }
+                players.forEach((player)=>{
+                    if (player.jumpCount==1&&!this.playingIntro) {
+                        this.playIntro();
+                    }
+                });
 
                 // The horizon doesn't move until the intro is over.
                 if (this.playingIntro) {
                     this.horizon.update(0, this.currentSpeed, hasObstacles);
                 } else {
                     deltaTime = !this.activated ? 0 : deltaTime;
-                    this.horizon.update(deltaTime, this.currentSpeed, hasObstacles,
-                        this.inverted);
+                    this.horizon.update(deltaTime, this.currentSpeed, hasObstacles, this.inverted);
                 }
-
-                // Check for collisions.
-                var collision = hasObstacles &&
-                    checkForCollision(this.horizon.obstacles[0], this.tRex);
+                var ilerle=false;
+                players.forEach((tRex,index)=>{
+                    var collision = hasObstacles &&
+                    checkForCollision(this.horizon.obstacles[0], tRex,index);
+                    if (parameters[index]!=undefined) parameters[index].speed=(this.currentSpeed/this.config.MAX_SPEED);
 
                 if (!collision) {
-                    this.distanceRan += this.currentSpeed * deltaTime / this.msPerFrame;
-
+                    ilerle=true;
+                    distances[index]+=this.currentSpeed * deltaTime / this.msPerFrame;
+                } else {
+                    this.gameOver(tRex); //player için oyun bitecek
+                }
+                });
+                // Check for collisions.
+                if (ilerle) {
+                                        // this.distanceRan += this.currentSpeed * deltaTime / this.msPerFrame;
                     if (this.currentSpeed < this.config.MAX_SPEED) {
                         this.currentSpeed += this.config.ACCELERATION;
                     }
-                } else {
-                    this.gameOver();
                 }
+                // var playAchievementSound = this.distanceMeter.update(deltaTime,Math.ceil(this.distanceRan));,
+                var max = distances.reduce(function(a, b) {
+                    return Math.max(a, b);
+                });
 
-                var playAchievementSound = this.distanceMeter.update(deltaTime,
-                    Math.ceil(this.distanceRan));
+                var playAchievementSound = this.distanceMeter.update(deltaTime,Math.ceil(max));
 
                 if (playAchievementSound) {
                     this.playSound(this.soundFx.SCORE);
@@ -576,32 +640,136 @@
                 if (this.invertTimer > this.config.INVERT_FADE_DURATION) {
                     this.invertTimer = 0;
                     this.invertTrigger = false;
+                    nmActivated=false;
                     this.invert();
                 } else if (this.invertTimer) {
                     this.invertTimer += deltaTime;
                 } else {
                     var actualDistance =
-                        this.distanceMeter.getActualDistance(Math.ceil(this.distanceRan));
+                        // this.distanceMeter.getActualDistance(Math.ceil(this.distanceRan));
+                        this.distanceMeter.getActualDistance(Math.ceil(max));
 
                     if (actualDistance > 0) {
                         this.invertTrigger = !(actualDistance %
                             this.config.INVERT_DISTANCE);
-
                         if (this.invertTrigger && this.invertTimer === 0) {
                             this.invertTimer += deltaTime;
+                            nmActivated=true;
                             this.invert();
+                            // console.log("invert trigger ran");
+                            // console.log(this.invertTrigger);
                         }
                     }
                 }
             }
 
-            if (this.playing || (!this.activated &&
-                this.tRex.blinkCount < Runner.config.MAX_BLINK_COUNT)) {
-                this.tRex.update(deltaTime);
-                this.scheduleNextUpdate();
-            }
+            // if (this.playing || (!this.activated &&
+            //     this.tRex.blinkCount < Runner.config.MAX_BLINK_COUNT)) {
+            //     this.tRex.update(deltaTime);
+            //     this.scheduleNextUpdate();
+            // }
+            var x=false;
+            players.forEach((player,idx)=>{
+                if (this.playing || (!this.activated&&player.blinkCount<Runner.config.MAX_BLINK_COUNT)) {
+                    player.update(deltaTime);
+                    this.drawNetwork();
+                    predictions[idx]=ais[idx].predictAction(parameters[idx],idx);
+                    x=true;
+                }
+            });
+            this.autoMateKeyDown();
+            this.autoMateKeyUp();
+            document.getElementById("playing-count").innerHTML=players.length.toString();
+            if (x) this.scheduleNextUpdate();
         },
 
+        dec2hex: function (dec) {
+            var ret = dec.toString(16);
+            if (ret.length==1) ret="0"+ret;
+            return ret;
+        }
+        ,
+        drawNetwork: function() {
+            var canvas=document.getElementById("neural-network");
+            var ctx=canvas.getContext("2d");
+            ctx.font="15px Arial";
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height); //clear canvas
+            var initialNeurons=[];
+            var resNeurons=[];
+            var inputTexts=["mesafe","uzunluk","yükseklik","hız"];
+            var outputTexts=["koş","zıpla","eğil"];
+            var ps=parameters[0];
+            // if (ps.distanceX!=0) console.log(ps);
+            var pars=[ps.distanceX,ps.obstacleWidth,ps.distanceY,ps.speed];
+            var styles=[];
+            var textColor;
+            if (nmActivated) textColor="white"; else textColor="black";
+            // console.log(pars[3]);
+            pars.forEach((item,idx)=>{
+                var r=255;
+                var g=255;
+                var b=255;
+                // console.log(item);
+                var color=this.dec2hex(Math.ceil(r*item))+this.dec2hex(Math.ceil(g*item))+this.dec2hex(Math.ceil(b*item));
+                styles.push([color,3]);
+                styles[idx][1]=item*5;
+                //styles[idx][1]=2;
+            });
+            for(var i=0;i<4;i++) {
+                ctx.restore();
+                ctx.beginPath();
+                initialNeurons.push([100,75*(i+1)]);
+                ctx.fillStyle = textColor;
+                ctx.fillText(inputTexts[i],5,75*(i+1));
+                ctx.arc(100, 75*(i+1), 30, 0, 2 * Math.PI);
+                ctx.fillStyle = "#"+styles[i][0];
+                ctx.fill();
+                ctx.lineWidth = styles[i][1];
+                ctx.strokeStyle = textColor;
+                ctx.stroke();
+            }
+            var pred;
+            if (predictions.length>0) pred=predictions[0];
+            for(var i=0;i<3;i++) {
+                var r=255;
+                var g=255;
+                var b=255;
+                // console.log(predictionPercentage[0]);
+                var color=this.dec2hex(Math.ceil(r*predictionPercentage[0][i]))+this.dec2hex(Math.ceil(g*predictionPercentage[0][i]))+this.dec2hex(Math.ceil(b*predictionPercentage[0][i]));
+                ctx.restore();
+                ctx.beginPath();
+                ctx.fillStyle = textColor;
+                if (pred==i) ctx.font="bold 20px Arial"; else ctx.font="15px Arial";
+                ctx.fillText(outputTexts[i],235,35+(75*(i+1)));
+                resNeurons.push([200,35+(75*(i+1))]);
+                ctx.arc(200, 35+(75*(i+1)), 30, 0, 2 * Math.PI);
+                ctx.fillStyle="#"+color;
+                // if (pred==i) ctx.fillStyle = '#99ccff';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = textColor;
+                ctx.stroke();
+            }
+            
+            if (ais[0]!=undefined) {
+                var ws=ais[0].weights
+                initialNeurons.forEach((nrn,col)=>{
+                resNeurons.forEach((resnr,row)=>{
+                    ctx.restore();
+                    ctx.beginPath();
+                    ctx.strokeStyle=" #ff5050";
+                    if (ws[row][col]>0) ctx.strokeStyle="#66c2ff";
+                    ctx.lineWidth=1;
+                    ctx.lineWidth+=(3*Math.abs(ws[row][col]));
+                    ctx.moveTo(nrn[0],nrn[1]);
+                    ctx.lineTo(resnr[0],resnr[1]);
+                    ctx.stroke();
+                });
+            });
+            }
+            
+        },
         /**
          * Event handler.
          */
@@ -663,46 +831,120 @@
          * Process keydown.
          * @param {Event} e
          */
+        autoMateKeyDown: function () {
+            // Prevent native page scrolling whilst tapping on mobile.
+            // if (IS_MOBILE && this.playing) {
+            //     // e.preventDefault();
+            // }
+            players.forEach((player,idx)=> {
+
+                // if (e.target != this.detailsButton) {
+                    if (!this.crashed && predictions[idx]==1) {
+                        // if (!this.playing) {
+                        //     // this.loadSounds();
+                        //     // this.playing = true;
+                        //     // this.update();
+                        //     if (window.errorPageController) {
+                        //         errorPageController.trackEasterEgg();
+                        //     }
+                        // }
+                        //  Play sound effect and jump on starting the game for the first time.
+                        // if (!this.tRex.jumping && !this.tRex.ducking) {
+                        //     this.playSound(this.soundFx.BUTTON_PRESS);
+                        //     this.tRex.startJump(this.currentSpeed);
+                        // }
+                        // players.forEach((player)=>{
+                        //     if (!player.jumping&&!player.ducking) {
+                        //         this.playSound(this.soundFx.BUTTON_PRESS);
+                        //         player.startJump(this.currentSpeed);
+                        //     }
+                        // });
+                        if (!player.jumping&&!player.ducking) {
+                            this.playSound(this.soundFx.BUTTON_PRESS);
+                            player.startJump(this.currentSpeed);
+                        }
+                    }
+    
+                    if (this.crashed && e.type == Runner.events.TOUCHSTART &&
+                        e.currentTarget == this.containerEl) {
+                        this.restart();
+                    }
+                // }
+    
+                if (this.playing && !this.crashed && predictions[idx]==2) {
+                    // e.preventDefault();
+                    // if (this.tRex.jumping) {
+                    //     // Speed drop, activated only when jump key is not pressed.
+                    //     this.tRex.setSpeedDrop();
+                    // } else if (!this.tRex.jumping && !this.tRex.ducking) {
+                    //     // Duck.
+                    //     this.tRex.setDuck(true);
+                    // }
+                    if (player.jumping) {
+                            player.setSpeedDrop();
+                    } else if (!player.jumping&&!player.ducking) {
+                            player.setDuck(true);
+                    }
+                }
+            })
+        },
         onKeyDown: function (e) {
             // Prevent native page scrolling whilst tapping on mobile.
             if (IS_MOBILE && this.playing) {
                 e.preventDefault();
             }
+            players.forEach((player,idx)=> {
 
-            if (e.target != this.detailsButton) {
-                if (!this.crashed && (Runner.keycodes.JUMP[e.keyCode] ||
-                    e.type == Runner.events.TOUCHSTART)) {
-                    if (!this.playing) {
-                        this.loadSounds();
-                        this.playing = true;
-                        this.update();
-                        if (window.errorPageController) {
-                            errorPageController.trackEasterEgg();
+                if (e.target != this.detailsButton) {
+                    if (!this.crashed && (Runner.keycodes.JUMP[e.keyCode] ||
+                        e.type == Runner.events.TOUCHSTART)) {
+                        if (!this.playing) {
+                            this.loadSounds();
+                            this.playing = true;
+                            this.update();
+                            if (window.errorPageController) {
+                                errorPageController.trackEasterEgg();
+                            }
+                        }
+                        //  Play sound effect and jump on starting the game for the first time.
+                        // if (!this.tRex.jumping && !this.tRex.ducking) {
+                        //     this.playSound(this.soundFx.BUTTON_PRESS);
+                        //     this.tRex.startJump(this.currentSpeed);
+                        // }
+                        // players.forEach((player)=>{
+                        //     if (!player.jumping&&!player.ducking) {
+                        //         this.playSound(this.soundFx.BUTTON_PRESS);
+                        //         player.startJump(this.currentSpeed);
+                        //     }
+                        // });
+                        if (!player.jumping&&!player.ducking) {
+                            this.playSound(this.soundFx.BUTTON_PRESS);
+                            player.startJump(this.currentSpeed);
                         }
                     }
-                    //  Play sound effect and jump on starting the game for the first time.
-                    if (!this.tRex.jumping && !this.tRex.ducking) {
-                        this.playSound(this.soundFx.BUTTON_PRESS);
-                        this.tRex.startJump(this.currentSpeed);
+    
+                    if (this.crashed && e.type == Runner.events.TOUCHSTART &&
+                        e.currentTarget == this.containerEl) {
+                        this.restart();
                     }
                 }
-
-                if (this.crashed && e.type == Runner.events.TOUCHSTART &&
-                    e.currentTarget == this.containerEl) {
-                    this.restart();
+    
+                if ((this.playing && !this.crashed && Runner.keycodes.DUCK[e.keyCode])) {
+                    e.preventDefault();
+                    // if (this.tRex.jumping) {
+                    //     // Speed drop, activated only when jump key is not pressed.
+                    //     this.tRex.setSpeedDrop();
+                    // } else if (!this.tRex.jumping && !this.tRex.ducking) {
+                    //     // Duck.
+                    //     this.tRex.setDuck(true);
+                    // }
+                    if (player.jumping) {
+                            player.setSpeedDrop();
+                    } else if (!player.jumping&&!player.ducking) {
+                            player.setDuck(true);
+                    }
                 }
-            }
-
-            if (this.playing && !this.crashed && Runner.keycodes.DUCK[e.keyCode]) {
-                e.preventDefault();
-                if (this.tRex.jumping) {
-                    // Speed drop, activated only when jump key is not pressed.
-                    this.tRex.setSpeedDrop();
-                } else if (!this.tRex.jumping && !this.tRex.ducking) {
-                    // Duck.
-                    this.tRex.setDuck(true);
-                }
-            }
+            })
         },
 
 
@@ -710,6 +952,40 @@
          * Process key up.
          * @param {Event} e
          */
+        autoMateKeyUp: function() {
+            players.forEach((player,idx)=> {
+                var keyCode = "32";
+                var isjumpKey = Runner.keycodes.JUMP[keyCode]; //||
+                    // e.type == Runner.events.TOUCHEND ||
+                    // e.type == Runner.events.MOUSEDOWN;
+    
+                if (this.isRunning() && predictions[idx]==0) {
+                    // this.tRex.endJump();
+                    if (player.jumping) player.endJump();
+                    // this.tRex.speedDrop = false;
+                    // this.tRex.setDuck(false);
+                    if (player.ducking) {
+                        player.speedDrop=false;
+                        player.setDuck(false);
+                    }
+                } else if (this.crashed) {
+                    // Check that enough time has elapsed before allowing jump key to restart.
+                    var deltaTime = getTimeStamp() - this.time;
+    
+                    if (Runner.keycodes.RESTART[keyCode] || this.isLeftClickOnCanvas(e) ||
+                        (deltaTime >= this.config.GAMEOVER_CLEAR_TIME &&
+                            Runner.keycodes.JUMP[keyCode])) {
+                        this.restart();
+                    }
+                } else if (this.paused && isjumpKey) {
+                    // Reset the jump state
+                    // this.tRex.reset();
+                    
+                    player.reset();
+                    this.play();
+                }
+            });
+        },
         onKeyUp: function (e) {
             var keyCode = String(e.keyCode);
             var isjumpKey = Runner.keycodes.JUMP[keyCode] ||
@@ -717,10 +993,17 @@
                 e.type == Runner.events.MOUSEDOWN;
 
             if (this.isRunning() && isjumpKey) {
-                this.tRex.endJump();
+                // this.tRex.endJump();
+                players.forEach((player)=>{
+                    player.endJump();
+                });
             } else if (Runner.keycodes.DUCK[keyCode]) {
-                this.tRex.speedDrop = false;
-                this.tRex.setDuck(false);
+                // this.tRex.speedDrop = false;
+                // this.tRex.setDuck(false);
+                players.forEach((player)=>{
+                    player.speedDrop=false;
+                    player.setDuck(false);
+                });
             } else if (this.crashed) {
                 // Check that enough time has elapsed before allowing jump key to restart.
                 var deltaTime = getTimeStamp() - this.time;
@@ -732,7 +1015,10 @@
                 }
             } else if (this.paused && isjumpKey) {
                 // Reset the jump state
-                this.tRex.reset();
+                // this.tRex.reset();
+                players.forEach((player)=>{
+                    player.reset();
+                });
                 this.play();
             }
         },
@@ -769,15 +1055,25 @@
         /**
          * Game over state.
          */
-        gameOver: function () {
+        gameOver: function (player) {
             this.playSound(this.soundFx.HIT);
             vibrate(200);
 
-            this.stop();
-            this.crashed = true;
-            this.distanceMeter.acheivement = false;
+            //this.crashed = true;
+            //this.distanceMeter.acheivement = false;
 
-            this.tRex.update(100, Trex.status.CRASHED);
+            // this.tRex.update(100, Trex.status.CRASHED);
+            player.update(100, Trex.status.CRASHED);
+            const index=players.indexOf(player);
+            if (index>-1) {
+                players.splice(index,1);
+                parameters.splice(index,1);
+                aisTemp.push(ais[index]);
+                distancesTemp.push(distances[index]);
+                distances.splice(index,1);
+                ais.splice(index,1);
+            }
+
 
             // Game over panel.
             if (!this.gameOverPanel) {
@@ -785,31 +1081,80 @@
                     this.spriteDef.TEXT_SPRITE, this.spriteDef.RESTART,
                     this.dimensions);
             } else {
-                this.gameOverPanel.draw();
+                if (players.length==0) this.gameOverPanel.draw();
             }
 
             // Update the high score.
-            if (this.distanceRan > this.highestScore) {
-                this.highestScore = Math.ceil(this.distanceRan);
-                this.distanceMeter.setHighScore(this.highestScore);
-            }
+            distancesTemp.forEach((distanceRan,index)=> {
+                if (distanceRan > this.highestScore) {
+                    this.highestScore = Math.ceil(distanceRan);
+                    this.distanceMeter.setHighScore(this.highestScore);
+                    if (aisTemp[index]!=undefined) {
+                        var ws=aisTemp[index].weights
+                        document.getElementById("best-overall").innerHTML="";
+                        ws.forEach((wRow)=>{
+                        document.getElementById("best-overall").innerHTML+=("["+wRow.toString()+"]");
+                        document.getElementById("tour").innerHTML="Tour:"+tour.toString();
+                        });   
+                    }
+                }
+            });
+            // if (this.distanceRan > this.highestScore) {
+            //     this.highestScore = Math.ceil(this.distanceRan);
+            //     this.distanceMeter.setHighScore(this.highestScore);
+            // }
 
             // Reset the time clock.
             this.time = getTimeStamp();
+            this.stop();
         },
 
         stop: function () {
-            this.playing = false;
-            this.paused = true;
-            cancelAnimationFrame(this.raqId);
-            this.raqId = 0;
+            if (players.length==0) {
+                distances=[];
+                parameters=[];
+                ais=[];
+                for(var i=0;i<playerCount;i++) {
+                    players.push(new Trex(this.canvas,this.spriteDef.TREX));
+                    var data={
+                        distanceX:0,
+                        distanceY:0,
+                        obstacleWidth:0,
+                        speed:this.currentSpeed/this.config.MAX_SPEED,
+                    }
+                    parameters.push(data);
+                    distances.push(0);
+                    var ai=new Ai();
+                    ai.weights=aisTemp[i].weights;
+                    ais.push(ai);
+                }
+                this.playing = false;
+                this.paused = true;
+                cancelAnimationFrame(this.raqId);
+                this.raqId = 0;
+                aiprocedures.classifyFitnesses();
+                aiprocedures.mutateModels();
+                aiprocedures.crossOverModels();
+                var ws=aisTemp[aisTemp.length-1].weights
+                document.getElementById("best-weigths").innerHTML="";
+                ws.forEach((wRow)=>{
+                    document.getElementById("best-weigths").innerHTML+=("["+wRow.toString()+"]");
+                });
+                distancesTemp=[];
+                aisTemp=[];
+                tour++;
+                this.restart();
+            }
         },
 
         play: function () {
             if (!this.crashed) {
                 this.playing = true;
                 this.paused = false;
-                this.tRex.update(0, Trex.status.RUNNING);
+                // this.tRex.update(0, Trex.status.RUNNING);
+                players.forEach((player,idx)=>{
+                    player.update(0, Trex.status.RUNNING);
+                });
                 this.time = getTimeStamp();
                 this.update();
             }
@@ -822,14 +1167,20 @@
                 this.playing = true;
                 this.crashed = false;
                 this.distanceRan = 0;
+                distances=distances.map((a)=>0);
+                for(var i=0;i<playerCount;i++) distances[i]=0;
                 this.setSpeed(this.config.SPEED);
                 this.time = getTimeStamp();
                 this.containerEl.classList.remove(Runner.classes.CRASHED);
                 this.clearCanvas();
                 this.distanceMeter.reset(this.highestScore);
                 this.horizon.reset();
-                this.tRex.reset();
+                // this.tRex.reset();
+                players.forEach((player)=>{
+                    player.reset();
+                });
                 this.playSound(this.soundFx.BUTTON_PRESS);
+                this.playingIntro=false;
                 this.invert(true);
                 this.update();
             }
@@ -843,7 +1194,10 @@
                 document.visibilityState != 'visible') {
                 this.stop();
             } else if (!this.crashed) {
-                this.tRex.reset();
+                // this.tRex.reset();
+                players.forEach((player)=>{
+                    player.reset();
+                });
                 this.play();
             }
         },
@@ -866,13 +1220,18 @@
          * @param {boolean} Whether to reset colors.
          */
         invert: function (reset) {
+            // console.log("invert function ran");
             if (reset) {
                 document.body.classList.toggle(Runner.classes.INVERTED, false);
                 this.invertTimer = 0;
                 this.inverted = false;
+                nmActivated=false;
+                // console.log("anything inverted");
             } else {
                 this.inverted = document.body.classList.toggle(Runner.classes.INVERTED,
                     this.invertTrigger);
+                // console.log("invert process completed");
+                // console.log(this.inverted);
             }
         }
     };
@@ -1101,7 +1460,7 @@
      *    collision boxes.
      * @return {Array<CollisionBox>}
      */
-    function checkForCollision(obstacle, tRex, opt_canvasCtx) {
+    function checkForCollision(obstacle, tRex, index, opt_canvasCtx) {
         var obstacleBoxXPos = Runner.defaultDimensions.WIDTH + obstacle.xPos;
 
         // Adjustments are made to the bounding box as there is a 1 pixel white
@@ -1117,8 +1476,11 @@
             obstacle.yPos + 1,
             obstacle.typeConfig.width * obstacle.size - 2,
             obstacle.typeConfig.height - 2);
-
-        // Debug outer box
+        if (parameters[index]!=undefined) {
+        parameters[index].distanceX=(obstacleBox.x-tRexBox.x-tRexBox.width)/DEFAULT_WIDTH;
+        parameters[index].distanceY=(1-((obstacleBox.y+obstacleBox.height)/150));
+        parameters[index].obstacleWidth=obstacleBox.width/51;
+        }
         if (opt_canvasCtx) {
             drawCollisionBoxes(opt_canvasCtx, tRexBox, obstacleBox);
         }
@@ -1488,6 +1850,9 @@
      * @constructor
      */
     function Trex(canvas, spritePos) {
+        // this.distanceX=0;
+        // this.distanceY=0;
+        this.obstacleWidth=0;
         this.canvas = canvas;
         this.canvasCtx = canvas.getContext('2d');
         this.spritePos = spritePos;
@@ -2012,7 +2377,6 @@
         update: function (deltaTime, distance) {
             var paint = true;
             var playSound = false;
-
             if (!this.acheivement) {
                 distance = this.getActualDistance(distance);
                 // Score has gone beyond the initial digit count.
@@ -2703,6 +3067,135 @@
         addCloud: function () {
             this.clouds.push(new Cloud(this.canvas, this.spritePos.CLOUD,
                 this.dimensions.WIDTH));
+        }
+    };
+
+    function Ai(idx) {
+        this.idx=idx;
+        this.weights=[[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]];
+        this.init();
+    };
+
+    Ai.prototype = {
+        init: function() {
+            var row=0;
+            this.weights.forEach((w)=>{
+                var col=0;
+                w.forEach((item)=>{
+                    this.weights[row][col]=(Math.random()*2)-1;
+                    col++;
+                });
+                row++;
+            });
+        },
+        predictAction: function (params,idx) {
+            if (params!=undefined) {
+                var result=[0.0,0.0,0.0];
+                var row=0;
+                this.weights.forEach((w)=>{
+                    result[row]+=params.obstacleWidth*w[0];
+                    result[row]+=params.speed*w[1];
+                    result[row]+=params.distanceX*w[2];
+                    result[row]+=params.distanceY*w[3];
+                    row++;
+                });
+                result=this.softmaxNeuralActivation(result);
+                predictionPercentage[idx]=result;
+                var ret= result.reduce(function(a, b) {
+                    return Math.max(a, b);
+                });
+                ret=result.indexOf(ret);
+                return ret;
+                } else return 0;
+        },
+        softmaxNeuralActivation: function (result) {
+            var arr=result;
+            return arr.map(function(value,index) { 
+                return Math.exp(value) / arr.map( function(y /*value*/){ return Math.exp(y) } ).reduce( function(a,b){ return a+b })
+              });
+        }
+    };
+
+    function AiProcedures() {
+        this.AiArray=ais;
+        this.crossoverIds=[];
+        this.mutateIds=[];
+        this.fitnesses=[];
+        this.best=0;
+    };
+
+    AiProcedures.prototype = {
+
+        classifyFitnesses: function() {
+            var ortalama=0;
+            var max=0;
+            distancesTemp.forEach((p,idx)=>{
+                if (p>max) max=p;
+                ortalama+=p;
+            });
+            this.best=distancesTemp.indexOf(max);
+            ortalama=ortalama/distancesTemp.length;
+            var sp=0;
+            distancesTemp.forEach((p)=>{
+                sp+=((p-ortalama)**2);
+            });
+            sp=sp/(distancesTemp.length-1);
+            sp=Math.sqrt(sp);
+
+            
+            this.fitnesses=[];
+            var maxZ=0;
+            var minZ=0;
+            distancesTemp.forEach((p)=>{
+                var z_score=(p-ortalama)/sp;
+                this.fitnesses.push(z_score);
+                if (z_score>maxZ) maxZ=z_score;
+                if (z_score<minZ) minZ=z_score;
+            });
+            this.fitnesses=this.fitnesses.map((z)=>(z-minZ)/(maxZ-minZ));
+            
+            this.crossoverIds=[];
+            this.mutateIds=[];
+            this.fitnesses.forEach((fitness,index)=>{
+                if (fitness>0.80) {
+                    this.crossoverIds.push(index);
+                } else {
+                    this.mutateIds.push(index);
+                }
+            });
+        },
+        mutateModels: function() {
+            this.mutateIds.forEach((idx)=>{
+                ais[idx].weights.forEach((weightRow,row)=>{
+                    weightRow.forEach((weight,col)=>{
+                        if (Math.random()>0.85) {
+                            var angle=(Math.asin(weight));
+                            angle+=(Math.random()-0.5);
+                            ais[idx].weights[row][col]=Math.sin(angle);
+                        }
+                    });
+                });
+            });
+        },
+        crossOverModels: function () {
+            this.crossoverIds.forEach((idx,index)=>{
+                if (this.crossoverIds.length>index+1) {
+                    ais[idx].weights.forEach((weightRow,row)=>{
+                        var changeIds=[];
+                        while (changeIds.length<2) {
+                            var id=Math.floor(Math.random()*weightRow.length);
+                            if (changeIds.indexOf(id)===-1) {
+                                changeIds.push(id);
+                            }
+                        }
+                        changeIds.forEach((id)=>{
+                            var tmp=ais[this.crossoverIds[index+1]].weights[row][id];
+                            ais[this.crossoverIds[index+1]].weights[row][id]=ais[idx].weights[row][id];
+                            ais[idx].weights[row][id]=tmp;
+                        })
+                    })
+                }
+            });
         }
     };
 })();
